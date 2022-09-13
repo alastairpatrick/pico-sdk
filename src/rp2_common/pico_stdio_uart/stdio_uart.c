@@ -8,14 +8,19 @@
 #include "pico/stdio_uart.h"
 #include "pico/binary_info.h"
 #include "hardware/gpio.h"
+#include "hardware/sync.h"
 
 static uart_inst_t *uart_instance;
+static int uart_irq;
 
 #if PICO_NO_BI_STDIO_UART
 #define stdio_bi_decl_if_func_used(x)
 #else
 #define stdio_bi_decl_if_func_used bi_decl_if_func_used
 #endif
+
+void uart_interrupt_handler(void);
+void uart_prepare_to_await_input(void);
 
 void stdio_uart_init() {
 #ifdef uart_default
@@ -76,8 +81,28 @@ void stdio_uart_init_full(struct uart_inst *uart, uint baud_rate, int tx_pin, in
     stdio_set_driver_enabled(&stdio_uart, true);
 }
 
+void stdio_uart_init_blocking(struct uart_inst *uart, uint8_t irq_priority) {
+    assert(uart == uart_instance);
+    uart_irq = uart == uart0 ? UART0_IRQ : UART1_IRQ;
+
+    irq_add_shared_handler(uart_irq, uart_interrupt_handler, PICO_SHARED_IRQ_HANDLER_DEFAULT_ORDER_PRIORITY);
+    irq_set_priority(uart_irq, irq_priority);
+    irq_set_enabled(uart_irq, true);
+    
+    // Was null before to indicate to stdio_get_until() that blocking wasn't supported.
+    stdio_uart.prepare_to_await_input = uart_prepare_to_await_input;
+}
+
 static void stdio_uart_out_chars(const char *buf, int length) {
+    uart_hw_t* hw = (uart_hw_t*) uart_instance;
+
     for (int i = 0; i <length; i++) {
+        if (stdio_uart.prepare_to_await_input) {
+            while (!uart_is_writable(uart_instance)) {
+                hw_set_bits(&hw->imsc, UART_UARTIMSC_TXIM_BITS);
+                stdio_wait();
+            }
+        }
         uart_putc(uart_instance, buf[i]);
     }
 }
@@ -88,6 +113,23 @@ int stdio_uart_in_chars(char *buf, int length) {
         buf[i++] = uart_getc(uart_instance);
     }
     return i ? i : PICO_ERROR_NO_DATA;
+}
+
+void uart_interrupt_handler(void) {
+    uart_hw_t* hw = (uart_hw_t*) uart_instance;
+    if (uart_is_readable(uart_instance)) {
+        hw_clear_bits(&hw->imsc, UART_UARTIMSC_RXIM_BITS | UART_UARTIMSC_RTIM_BITS);
+    }
+    if (uart_is_writable(uart_instance)) {
+        hw_clear_bits(&hw->imsc, UART_UARTIMSC_TXIM_BITS);
+    }
+
+    stdio_signal_from_isr();
+}
+
+void uart_prepare_to_await_input(void) {
+    uart_hw_t* hw = (uart_hw_t*) uart_instance;
+    hw_set_bits(&hw->imsc, UART_UARTIMSC_RXIM_BITS | UART_UARTIMSC_RTIM_BITS);
 }
 
 stdio_driver_t stdio_uart = {

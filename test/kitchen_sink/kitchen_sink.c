@@ -116,6 +116,18 @@ __force_inline int something_inlined(int x) {
 auto_init_mutex(mutex);
 auto_init_recursive_mutex(recursive_mutex);
 
+void test_stdio(void) {
+    stdio_uart_init_blocking(uart_default, PICO_LOWEST_IRQ_PRIORITY);
+    for (;;) {
+        int c = getchar_timeout_us(1000000);
+        if (c == PICO_ERROR_TIMEOUT) {
+            printf("Timeout\n");
+        } else {
+            putchar(c);
+        }
+    }
+}
+
 int main(void) {
     spiggle();
 
@@ -124,6 +136,8 @@ int main(void) {
     printf("HI %d\n", something_inlined((int)time_us_32()));
     puts("Hello Everything!");
     puts("Hello Everything2!");
+
+    test_stdio();
 
     hard_assert(mutex_try_enter(&mutex, NULL));
     hard_assert(!mutex_try_enter(&mutex, NULL));

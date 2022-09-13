@@ -7,6 +7,8 @@ if (NOT TARGET pico_stdio)
             ${CMAKE_CURRENT_LIST_DIR}/stdio.c
     )
 
+    target_link_libraries(pico_stdio INTERFACE pico_time)
+    
     pico_wrap_function(pico_stdio printf)
     pico_wrap_function(pico_stdio vprintf)
     pico_wrap_function(pico_stdio puts)

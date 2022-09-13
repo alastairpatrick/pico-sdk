@@ -40,6 +40,25 @@
 extern "C" {
 #endif
 
+#ifndef stdio_yield
+#define stdio_yield(delay) busy_wait_us(delay)
+#endif
+
+#ifndef stdio_wait
+#define stdio_wait() __wfe()
+#endif
+
+#ifndef stdio_wait_until
+#define stdio_wait_until(until) best_effort_wfe_or_timeout(until)
+#endif
+
+#ifndef stdio_signal
+#define stdio_signal() __sev();
+#endif
+
+#ifndef stdio_signal_from_isr
+#define stdio_signal_from_isr() __sev();
+#endif
 
 typedef struct stdio_driver stdio_driver_t;
 

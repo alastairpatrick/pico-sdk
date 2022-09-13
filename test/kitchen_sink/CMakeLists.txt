@@ -122,6 +122,11 @@ target_link_libraries(kitchen_sink_cpp kitchen_sink_libs kitchen_sink_options)
 pico_set_program_name(kitchen_sink_cpp "Wombat tentacles CPP")
 pico_add_extra_outputs(kitchen_sink_cpp)
 
+add_executable(kitchen_sink_uart_stdio ${CMAKE_CURRENT_LIST_DIR}/kitchen_sink.c)
+target_link_libraries(kitchen_sink_uart_stdio kitchen_sink_libs kitchen_sink_options)
+pico_enable_stdio_uart(kitchen_sink_uart_stdio 1)
+pico_add_extra_outputs(kitchen_sink_uart_stdio)
+
 if (TARGET pico_cyw43_arch)
     # for lwipopts.h
     add_executable(kitchen_sink_lwip_poll ${CMAKE_CURRENT_LIST_DIR}/kitchen_sink.c)

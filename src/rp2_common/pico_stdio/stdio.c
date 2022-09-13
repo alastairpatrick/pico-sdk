@@ -126,6 +126,8 @@ static bool stdio_put_string(const char *s, int len, bool newline, bool no_cr) {
 
 static int stdio_get_until(char *buf, int len, absolute_time_t until) {
     do {
+        bool can_wait = __get_current_exception() == 0;
+
         // todo round robin might be nice on each call, but then again hopefully
         //  no source will starve the others
         for (stdio_driver_t *driver = drivers; driver; driver = driver->next) {
@@ -136,13 +138,28 @@ static int stdio_get_until(char *buf, int len, absolute_time_t until) {
                     return read;
                 }
             }
+            if (!driver->prepare_to_await_input) {
+                can_wait = false;
+            }
         }
         if (time_reached(until)) {
             return PICO_ERROR_TIMEOUT;
         }
-        // we sleep here in case the in_chars methods acquire mutexes or disable IRQs and
-        // potentially starve out what they are waiting on (have seen this with USB)
-        busy_wait_us(1);
+
+        if (can_wait) {
+            for (stdio_driver_t *driver = drivers; driver; driver = driver->next) {
+                if (filter && filter != driver) continue;
+                driver->prepare_to_await_input();
+            }
+
+            stdio_wait_until(until);
+
+            // It's tempting to do something here to reverse what prepare_to_await_input() did.
+            // That would be difficult to do without a race condition though; the other core might
+            // also be reading from stdio.
+        } else {
+            stdio_yield(1);
+        }
     } while (true);
 }
 

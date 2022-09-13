@@ -63,6 +63,9 @@ void stdin_uart_init(void);
  */
 void stdio_uart_init_full(uart_inst_t *uart, uint baud_rate, int tx_pin, int rx_pin);
 
+// TODO: document
+void stdio_uart_init_blocking(struct uart_inst *uart, uint8_t irq_priority);
+
 #ifdef __cplusplus
 }
 #endif

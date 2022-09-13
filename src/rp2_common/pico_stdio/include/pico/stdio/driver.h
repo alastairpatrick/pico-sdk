@@ -19,6 +19,7 @@ struct stdio_driver {
     bool last_ended_with_cr;
     bool crlf_enabled;
 #endif
+    void (*prepare_to_await_input)(void);
 };
 
 #endif
